@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scan Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        .chart-container { width: 50%; margin: auto; }
+    </style>
+</head>
+<body>
+    <h1>Scan Results for: {{ target }}</h1>
+
+    <div class="chart-container">
+        <canvas id="portChart"></canvas>
+    </div>
+
+    <h2>Open Ports</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Port</th>
+                <th>Protocol</th>
+                <th>State</th>
+                <th>Service</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for port in ports %}
+            <tr>
+                <td>{{ port.port }}</td>
+                <td>{{ port.protocol }}</td>
+                <td>{{ port.state }}</td>
+                <td>{{ port.service }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+    <a href="/">Scan Another Target</a>
+
+    <script>
+       
+        const portsData = {{ ports|tojson }};
+
+        // Process data for the chart
+        const stateCounts = {
+            'open': 0,
+            'closed': 0,
+            'filtered': 0
+        };
+
+        portsData.forEach(port => {
+            if (stateCounts[port.state] !== undefined) {
+                stateCounts[port.state]++;
+            }
+        });
+
+        // Get the canvas element
+        const ctx = document.getElementById('portChart').getContext('2d');
+        
+        // Create the chart
+        const portChart = new Chart(ctx, {
+            type: 'doughnut', // Type of chart
+            data: {
+                labels: ['Open', 'Closed', 'Filtered'],
+                datasets: [{
+                    label: 'Port States',
+                    data: [stateCounts.open, stateCounts.closed, stateCounts.filtered],
+                    backgroundColor: [
+                        'rgb(75, 192, 192)',  // Green for Open
+                        'rgb(255, 99, 132)',  // Red for Closed
+                        'rgb(255, 205, 86)'   // Yellow for Filtered
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Port Status Summary'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
