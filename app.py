@@ -6,11 +6,20 @@ import uuid
 import threading
 import subprocess
 import xml.etree.ElementTree as ET
+import bugsnag
+from bugsnag.flask import handle_exceptions
 import shodan 
 from config import SHODAN_API_KEY
 import whois
 import dns.resolver
 from flask import Flask, render_template, request, redirect, url_for, jsonify
+
+
+bugsnag.configure(
+    api_key = "d08ce5abb162307f37a796fed94d9aba",
+    project_root = "/app",
+)
+
 
 app = Flask(__name__)
 
@@ -94,12 +103,24 @@ def run_scan_task(target, task_id):
     with open(filepath, 'w') as f:
         json.dump(results, f, default=str) 
 
+handle_exceptions(app)
 
 # --- Flask Routes ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
+"""
+@app.route('/test-crash')
+def test_crash():
+    /"/""
+    This route is designed to fail on purpose.
+    Dividing by zero will raise a ZeroDivisionError.
+    Bugsnag should catch this unhandled exception.
+    "/""
+    result = 1 / 0
+    return f"This will never be seen: {result}"
+"""
 
 @app.route('/scan', methods=['POST'])
 def start_scan():

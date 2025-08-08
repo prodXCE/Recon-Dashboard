@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recon-dashboard-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: recon-dashboard
+  template:
+    metadata:
+      labels:
+        app: recon-dashboard
+    spec: 
+       automountServiceAccountToken: false
+       containers:
+        - name: recon-dashboard-container
+          image: recon-dashboard:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 5000
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+              ephemeral-storage: "1Gi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+              ephemeral-storage: "2Gi"
