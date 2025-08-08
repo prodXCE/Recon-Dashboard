@@ -1,0 +1,2 @@
+# config.py
+SHODAN_API_KEY = "2KBiPhq0D6Xu3BVvF0dXyfKRsZ5257QE"

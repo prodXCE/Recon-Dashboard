@@ -5,93 +5,114 @@
     <title>Scan Results</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 2em; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
-        th { background-color: #f2f2f2; }
-        .chart-container { width: 50%; margin: auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 2em; background-color: #f8f9fa; color: #212529; }
+        h1, h2 { color: #343a40; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; background-color: #fff; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #dee2e6; text-align: left; padding: 12px; }
+        th { background-color: #e9ecef; }
+        .info-section { background-color: #fff; padding: 20px; border-radius: 8px; margin-top: 2em; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        #loading-indicator { text-align: center; font-size: 1.5em; padding: 40px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <h1>Scan Results for: {{ target }}</h1>
+    <h1>Scan Results</h1>
 
-    <div class="chart-container">
-        <canvas id="portChart"></canvas>
+    <div id="loading-indicator">
+        <p>🚀 Scan in progress... Please wait.</p>
     </div>
 
-    <h2>Open Ports</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Port</th>
-                <th>Protocol</th>
-                <th>State</th>
-                <th>Service</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for port in ports %}
-            <tr>
-                <td>{{ port.port }}</td>
-                <td>{{ port.protocol }}</td>
-                <td>{{ port.state }}</td>
-                <td>{{ port.service }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <br>
-    <a href="/">Scan Another Target</a>
+    <div id="results-container" class="hidden"></div>
 
     <script>
-       
-        const portsData = {{ ports|tojson }};
+        const task_id = "{{ task_id }}";
+        const resultsContainer = document.getElementById('results-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
 
-        // Process data for the chart
-        const stateCounts = {
-            'open': 0,
-            'closed': 0,
-            'filtered': 0
-        };
+        function buildNmapTable(ports) {
+            let table = '<table><thead><tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Product</th></tr></thead><tbody>';
+            ports.forEach(port => {
+                table += `<tr><td>${port.port}</td><td>${port.protocol}</td><td>${port.state}</td><td>${port.service}</td><td>${port.product}</td></tr>`;
+            });
+            table += '</tbody></table>';
+            return table;
+        }
 
-        portsData.forEach(port => {
-            if (stateCounts[port.state] !== undefined) {
-                stateCounts[port.state]++;
+        function buildWhoisTable(whoisData) {
+            let table = '<table><tbody>';
+            for (const [key, value] of Object.entries(whoisData)) {
+                table += `<tr><td><strong>${key.replace(/_/g, ' ').toUpperCase()}</strong></td><td>${Array.isArray(value) ? value.join(', ') : value}</td></tr>`;
             }
-        });
-
-        // Get the canvas element
-        const ctx = document.getElementById('portChart').getContext('2d');
+            table += '</tbody></table>';
+            return table;
+        }
         
-        // Create the chart
-        const portChart = new Chart(ctx, {
-            type: 'doughnut', // Type of chart
-            data: {
-                labels: ['Open', 'Closed', 'Filtered'],
-                datasets: [{
-                    label: 'Port States',
-                    data: [stateCounts.open, stateCounts.closed, stateCounts.filtered],
-                    backgroundColor: [
-                        'rgb(75, 192, 192)',  // Green for Open
-                        'rgb(255, 99, 132)',  // Red for Closed
-                        'rgb(255, 205, 86)'   // Yellow for Filtered
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    title: {
-                        display: true,
-                        text: 'Port Status Summary'
-                    }
-                }
+        function buildDnsTable(dnsData) {
+            let table = '<table><tbody>';
+            for (const [key, value] of Object.entries(dnsData)) {
+                table += `<tr><td><strong>${key}</strong></td><td>${value.join(', ')}</td></tr>`;
             }
-        });
+            table += '</tbody></table>';
+            return table;
+        }
+
+        function buildShodanTable(shodanData) {
+        if (shodanData.error) {
+            return `<p><strong>Shodan Error:</strong> ${shodanData.error}</p>`;
+        }
+        let table = '<table><tbody>';
+        table += `<tr><td><strong>Country</strong></td><td>${shodanData.country}</td></tr>`;
+        table += `<tr><td><strong>City</strong></td><td>${shodanData.city}</td></tr>`;
+        table += `<tr><td><strong>ISP</strong></td><td>${shodanData.isp}</td></tr>`;
+        table += `<tr><td><strong>OS</strong></td><td>${shodanData.os}</td></tr>`;
+        table += `<tr><td><strong>Hostnames</strong></td><td>${shodanData.hostnames.join(', ') || 'N/A'}</td></tr>`;
+        table += `<tr><td><strong>Open Ports (from Shodan)</strong></td><td>${shodanData.ports.join(', ') || 'N/A'}</td></tr>`;
+        table += '</tbody></table>';
+        return table;
+        }
+
+
+        function displayResults(data) {
+            loadingIndicator.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+
+            let html = '';
+            if (data.shodan) {
+                 html += '<div class="info-section"><h2>Shodan Information</h2>' + buildShodanTable(data.shodan) + '</div>';
+            }
+            if (data.nmap) {
+                html += '<div class="info-section"><h2>Nmap Scan</h2>' + buildNmapTable(data.nmap) + '</div>';
+            }
+            if (data.whois) {
+                html += '<div class="info-section"><h2>WHOIS Information</h2>' + buildWhoisTable(data.whois) + '</div>';
+            }
+            if (data.dns) {
+                html += '<div class="info-section"><h2>DNS Records</h2>' + buildDnsTable(data.dns) + '</div>';
+            }
+            if (data.error) {
+                html += `<div class="info-section"><h2>Error</h2><p>${data.error}</p></div>`;
+            }
+            html += '<br><a href="/">Scan Another Target</a>';
+            resultsContainer.innerHTML = html;
+        }
+
+        const interval = setInterval(() => {
+            fetch(`/status/${task_id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'complete') {
+                        clearInterval(interval);
+                        displayResults(data.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling for status:', error);
+                    clearInterval(interval);
+                    loadingIndicator.innerHTML = '<p>Error retrieving results.</p>';
+                });
+        }, 3000); 
     </script>
 </body>
 </html>
