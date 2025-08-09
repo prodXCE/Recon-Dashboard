@@ -113,7 +113,7 @@ def index():
 """
 @app.route('/test-crash')
 def test_crash():
-    /"/""
+    "/""
     This route is designed to fail on purpose.
     Dividing by zero will raise a ZeroDivisionError.
     Bugsnag should catch this unhandled exception.
