@@ -15,6 +15,7 @@
         a:hover { text-decoration: underline; }
         #loading-indicator { text-align: center; font-size: 1.5em; padding: 40px; }
         .hidden { display: none; }
+        .chart-container { max-width: 400px; margin: 2em auto; }
     </style>
 </head>
 <body>
@@ -30,6 +31,32 @@
         const task_id = "{{ task_id }}";
         const resultsContainer = document.getElementById('results-container');
         const loadingIndicator = document.getElementById('loading-indicator');
+
+        function buildChart(portsData, container) {
+            const stateCounts = {'open': 0, 'closed': 0, 'filtered': 0};
+            portsData.forEach(port => {
+                if (stateCounts[port.state] !== undefined) {
+                    stateCounts[port.state]++;
+                }
+            });
+
+            const ctx = container.getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Open', 'Closed', 'Filtered'],
+                    datasets: [{
+                        label: 'Port States',
+                        data: [stateCounts.open, stateCounts.closed, stateCounts.filtered],
+                        backgroundColor: ['rgb(75, 192, 192)', 'rgb(255, 99, 132)', 'rgb(255, 205, 86)']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Nmap Port Status Summary' } }
+                }
+            });
+        }
 
         function buildNmapTable(ports) {
             let table = '<table><thead><tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Product</th></tr></thead><tbody>';
@@ -59,31 +86,38 @@
         }
 
         function buildShodanTable(shodanData) {
-        if (shodanData.error) {
-            return `<p><strong>Shodan Error:</strong> ${shodanData.error}</p>`;
+            if (shodanData.error) {
+                return `<p><strong>Shodan Error:</strong> ${shodanData.error}</p>`;
+            }
+            let table = '<table><tbody>';
+            table += `<tr><td><strong>Country</strong></td><td>${shodanData.country}</td></tr>`;
+            table += `<tr><td><strong>City</strong></td><td>${shodanData.city}</td></tr>`;
+            table += `<tr><td><strong>ISP</strong></td><td>${shodanData.isp}</td></tr>`;
+            table += `<tr><td><strong>OS</strong></td><td>${shodanData.os}</td></tr>`;
+            table += `<tr><td><strong>Hostnames</strong></td><td>${shodanData.hostnames.join(', ') || 'N/A'}</td></tr>`;
+            table += `<tr><td><strong>Open Ports (from Shodan)</strong></td><td>${shodanData.ports.join(', ') || 'N/A'}</td></tr>`;
+            table += '</tbody></table>';
+            return table;
         }
-        let table = '<table><tbody>';
-        table += `<tr><td><strong>Country</strong></td><td>${shodanData.country}</td></tr>`;
-        table += `<tr><td><strong>City</strong></td><td>${shodanData.city}</td></tr>`;
-        table += `<tr><td><strong>ISP</strong></td><td>${shodanData.isp}</td></tr>`;
-        table += `<tr><td><strong>OS</strong></td><td>${shodanData.os}</td></tr>`;
-        table += `<tr><td><strong>Hostnames</strong></td><td>${shodanData.hostnames.join(', ') || 'N/A'}</td></tr>`;
-        table += `<tr><td><strong>Open Ports (from Shodan)</strong></td><td>${shodanData.ports.join(', ') || 'N/A'}</td></tr>`;
-        table += '</tbody></table>';
-        return table;
-        }
-
 
         function displayResults(data) {
             loadingIndicator.classList.add('hidden');
             resultsContainer.classList.remove('hidden');
 
             let html = '';
-            if (data.shodan) {
-                 html += '<div class="info-section"><h2>Shodan Information</h2>' + buildShodanTable(data.shodan) + '</div>';
+
+            if (data.nmap && data.nmap.length > 0) {
+                html += `<div class="info-section">
+                            <h2>Nmap Scan</h2>
+                            <div class="chart-container">
+                                <canvas id="portChart"></canvas>
+                            </div>
+                            ${buildNmapTable(data.nmap)}
+                         </div>`;
             }
-            if (data.nmap) {
-                html += '<div class="info-section"><h2>Nmap Scan</h2>' + buildNmapTable(data.nmap) + '</div>';
+
+            if (data.shodan) {
+                html += '<div class="info-section"><h2>Shodan Information</h2>' + buildShodanTable(data.shodan) + '</div>';
             }
             if (data.whois) {
                 html += '<div class="info-section"><h2>WHOIS Information</h2>' + buildWhoisTable(data.whois) + '</div>';
@@ -96,6 +130,12 @@
             }
             html += '<br><a href="/">Scan Another Target</a>';
             resultsContainer.innerHTML = html;
+
+            // --- FINALLY, DRAW THE CHART IF DATA EXISTS ---
+            if (data.nmap && data.nmap.length > 0) {
+                const chartCanvas = document.getElementById('portChart');
+                buildChart(data.nmap, chartCanvas);
+            }
         }
 
         const interval = setInterval(() => {
@@ -112,7 +152,7 @@
                     clearInterval(interval);
                     loadingIndicator.innerHTML = '<p>Error retrieving results.</p>';
                 });
-        }, 3000); 
+        }, 3000);
     </script>
 </body>
 </html>

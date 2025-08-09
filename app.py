@@ -105,22 +105,24 @@ def run_scan_task(target, task_id):
 
 handle_exceptions(app)
 
-# --- Flask Routes ---
+# --- Flask Routes --- 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-"""
+
 @app.route('/test-crash')
 def test_crash():
-    "/""
+    """
+    =>
     This route is designed to fail on purpose.
     Dividing by zero will raise a ZeroDivisionError.
     Bugsnag should catch this unhandled exception.
-    "/""
+    
+    """
     result = 1 / 0
     return f"This will never be seen: {result}"
-"""
+
 
 @app.route('/scan', methods=['POST'])
 def start_scan():
